@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BAO · Rocks Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#f8f6f1;color:#1a1a1a;line-height:1.6;-webkit-font-smoothing:antialiased}
+nav{position:sticky;top:0;background:rgba(248,246,241,0.92);backdrop-filter:blur(12px);padding:14px 32px;border-bottom:1px solid rgba(0,0,0,0.06);display:flex;gap:28px;z-index:100}
+nav a{font-size:13px;font-weight:600;color:#1a1a1a;text-decoration:none;padding-bottom:12px;border-bottom:2px solid transparent;transition:border-color 0.2s;cursor:pointer}
+nav a:hover{border-color:#D85A30}nav a.active{border-bottom:2px solid #D85A30}
+.container{max-width:960px;margin:0 auto;padding:0 32px}
+section{padding:56px 0 48px;border-bottom:1px solid rgba(0,0,0,0.05);display:none}
+section.active{display:block}section:last-of-type{border-bottom:none}
+.label{font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#c85a2d;margin-bottom:10px}
+h1{font-size:22px;font-weight:700;margin-bottom:8px;letter-spacing:-0.01em;line-height:1.3}
+h2{font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:16px;margin-top:36px;padding-bottom:8px;border-bottom:1px solid rgba(0,0,0,0.06)}
+h2:first-of-type{margin-top:28px}
+.subtitle{font-size:14px;color:#888;font-weight:400;margin-bottom:4px}
+p{font-size:14px;color:#666;font-weight:400;line-height:1.65}
+input[type="text"],input[type="date"],textarea{font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;padding:8px 12px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:#fff;color:#1a1a1a;width:100%;transition:all 0.2s;outline:none}
+input:focus,textarea:focus{border-color:#c85a2d;box-shadow:0 0 0 2px rgba(200,90,45,0.1)}
+textarea{resize:vertical;line-height:1.55}::placeholder{color:#bbb}
+select{font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:600;padding:7px 28px 7px 10px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E") no-repeat right 10px center;color:#666;cursor:pointer;appearance:none;-webkit-appearance:none;transition:all 0.2s;width:100%;outline:none}
+select:focus{border-color:#c85a2d;box-shadow:0 0 0 2px rgba(200,90,45,0.1)}
+.identity-bar{background:#fff;border-bottom:1px solid rgba(0,0,0,0.06);padding:10px 32px;display:flex;align-items:center;gap:12px;position:sticky;top:49px;z-index:99}
+.identity-bar .who-label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#bbb;white-space:nowrap}
+.identity-bar select{font-size:13px;font-weight:600;padding:6px 28px 6px 10px;min-width:200px}
+.identity-bar select.has-user{background-color:#1a1a1a;color:#fff;border-color:#1a1a1a;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23fff'/%3E%3C/svg%3E")}
+.identity-hint{font-size:11px;color:#bbb;font-style:italic}
+.save-indicator{font-size:11px;font-weight:600;opacity:0;transition:opacity 0.3s;margin-left:auto;white-space:nowrap}.save-indicator.visible{opacity:1}
+.save-indicator.synced{color:#1D9E75}.save-indicator.saving{color:#E8A030}.save-indicator.offline{color:#D85A30}
+.quarter-bar{display:flex;align-items:center;gap:4px;padding:8px 32px;background:#f3f1ec;border-bottom:1px solid rgba(0,0,0,0.06);position:sticky;top:99px;z-index:98}
+.quarter-bar .qtr-label{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#999;margin-right:8px;white-space:nowrap}
+.quarter-bar button{font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:700;padding:6px 16px;border-radius:8px;border:1px solid rgba(0,0,0,0.06);background:#fff;color:#666;cursor:pointer;transition:all 0.15s}
+.quarter-bar button:hover{border-color:rgba(0,0,0,0.18)}.quarter-bar button.active{background:#D85A30;color:#fff;border-color:#D85A30}
+.quarter-bar .year-input{font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:700;width:80px;padding:6px 8px;border-radius:8px;border:1px solid rgba(0,0,0,0.06);background:#fff;color:#1a1a1a;text-align:center;margin-left:8px;outline:none}
+.team-grid{display:flex;flex-direction:column;gap:1px;background:rgba(0,0,0,0.04);border-radius:10px;overflow:hidden;margin:16px 0 0}
+.team-header{display:grid;grid-template-columns:1fr 1fr 40px;background:#f3f1ec;font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.04em}
+.team-header>div{padding:10px 12px;border-left:1px solid rgba(0,0,0,0.04)}.team-header>div:first-child{border-left:none}
+.team-row{display:grid;grid-template-columns:1fr 1fr 40px;background:#fff;font-size:13px;transition:background 0.15s}.team-row:hover{background:#fdfcf8}
+.team-row>div{padding:7px 12px;border-left:1px solid rgba(0,0,0,0.04);border-bottom:1px solid rgba(0,0,0,0.03);display:flex;align-items:center}.team-row>div:first-child{border-left:none}
+.team-remove{font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;background:none;border:none;color:#ccc;cursor:pointer;padding:0;line-height:1;transition:color 0.15s}.team-remove:hover{color:#D85A30}
+.team-add-row{background:#fff;padding:10px 12px}.team-add-btn{font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:600;color:#c85a2d;background:none;border:none;cursor:pointer;padding:0}.team-add-btn:hover{text-decoration:underline}
+.team-count{font-size:11px;color:#bbb;margin-left:8px;font-weight:400}
+.rock-tabs{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:20px 0 8px}
+.rock-tabs button{font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:600;padding:7px 16px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:#fff;color:#666;cursor:pointer;transition:all 0.2s}
+.rock-tabs button:hover{border-color:rgba(0,0,0,0.18)}.rock-tabs button.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.rock-tabs button.add{border-style:dashed;color:#bbb}.rock-tabs button.add:hover{color:#c85a2d;border-color:#c85a2d}
+.editing-banner{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#fff;border:1px solid rgba(0,0,0,0.06);border-left:3px solid #D85A30;border-radius:10px;margin-bottom:24px}
+.editing-dot{width:8px;height:8px;border-radius:50%;background:#D85A30;flex-shrink:0;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.editing-label{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#c85a2d}.editing-name{font-size:14px;font-weight:700;color:#1a1a1a}
+.save-rock-btn{font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:700;padding:8px 20px;border-radius:8px;border:none;background:#1D9E75;color:#fff;cursor:pointer;transition:all 0.15s;white-space:nowrap}.save-rock-btn:hover{background:#178a65}
+.save-rock-btn.saved{background:#f3f1ec;color:#1D9E75;pointer-events:none}
+.timeout-warning{background:rgba(216,90,48,0.08);border:1px solid rgba(216,90,48,0.2);border-radius:10px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;font-size:12px;color:#D85A30;animation:flashWarn 1s ease-in-out infinite}
+@keyframes flashWarn{0%,100%{opacity:1}50%{opacity:0.7}}
+.timeout-icon{font-size:18px;flex-shrink:0}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.form-group label{display:block;font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#999;margin-bottom:5px}
+.guide-box{background:#fff;border-radius:10px;border:1px solid rgba(0,0,0,0.06);border-left:3px solid #c85a2d;padding:16px 20px;margin:20px 0}
+.guide-box .guide-title{font-size:13px;font-weight:700;color:#c85a2d;margin-bottom:4px}.guide-box .guide-text{font-size:12px;color:#888;line-height:1.6}
+.compare-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.compare-card{padding:10px 14px;border-radius:8px;font-size:12px;line-height:1.5}
+.compare-card.good{background:rgba(29,158,117,0.06);border:1px solid rgba(29,158,117,0.12)}.compare-card.bad{background:rgba(216,90,48,0.06);border:1px solid rgba(216,90,48,0.12)}
+.compare-card .tag{font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.04em}.compare-card.good .tag{color:#1D9E75}.compare-card.bad .tag{color:#D85A30}.compare-card .example{color:#666}
+.export-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:20px 0}
+.export-btn{font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:600;padding:7px 14px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:#fff;color:#666;cursor:pointer;transition:all 0.15s}
+.export-btn:hover{border-color:rgba(0,0,0,0.18)}.export-btn.primary{background:#1a1a1a;color:#fff;border-color:#1a1a1a}.export-btn.primary:hover{background:#333}
+.milestone-table{display:flex;flex-direction:column;gap:1px;background:rgba(0,0,0,0.04);border-radius:10px;overflow:hidden;margin:16px 0}
+.milestone-header{display:grid;grid-template-columns:30px 2fr 95px 80px 70px 1.5fr 40px 30px;background:#f3f1ec;font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.04em}
+.milestone-header>div{padding:10px 8px;border-left:1px solid rgba(0,0,0,0.04)}.milestone-header>div:first-child{border-left:none}
+.milestone-row{display:grid;grid-template-columns:30px 2fr 95px 80px 70px 1.5fr 40px 30px;background:#fff;font-size:13px;transition:background 0.15s}.milestone-row:hover{background:#fdfcf8}
+.milestone-row.tagged-leverage{background:rgba(29,158,117,0.04);border-left:3px solid #1D9E75}
+.milestone-row.tagged-mustnot{background:rgba(216,90,48,0.04);border-left:3px solid #D85A30}
+.tag-select{font-family:'Plus Jakarta Sans',sans-serif;font-size:9px;font-weight:700;padding:3px 6px;border-radius:6px;border:1px solid rgba(0,0,0,0.06);background:#fff;color:#999;cursor:pointer;appearance:none;-webkit-appearance:none;width:100%;text-align:center}
+.tag-select.tag-leverage{background:rgba(29,158,117,0.1);color:#1D9E75;border-color:rgba(29,158,117,0.2)}
+.tag-select.tag-mustnot{background:rgba(216,90,48,0.1);color:#D85A30;border-color:rgba(216,90,48,0.2)}
+.milestone-row>div{padding:6px 8px;border-left:1px solid rgba(0,0,0,0.04);border-bottom:1px solid rgba(0,0,0,0.03);display:flex;align-items:center}.milestone-row>div:first-child{border-left:none}
+.action-textarea{font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;padding:6px 8px;border-radius:6px;border:1px solid rgba(0,0,0,0.08);background:#fff;color:#1a1a1a;width:100%;resize:none;overflow:hidden;min-height:28px;line-height:1.4;outline:none;transition:border-color 0.2s}
+.action-textarea:focus{border-color:#c85a2d;box-shadow:0 0 0 2px rgba(200,90,45,0.1)}
+.mapping-select{font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:600;padding:6px 10px;border-radius:8px;border:1px solid rgba(55,138,221,0.2);background:rgba(55,138,221,0.04);color:#378ADD;width:100%;cursor:pointer;outline:none}
+.rock-type-badge{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;padding:2px 8px;border-radius:4px;display:inline-block}
+.rock-type-badge.science{color:#378ADD;background:rgba(55,138,221,0.1)}.rock-type-badge.magic{color:#534AB7;background:rgba(83,74,183,0.1)}
+.milestone-num{font-size:13px;font-weight:700;color:#c85a2d}
+.risk-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px}
+.filter-notice{background:rgba(200,90,45,0.06);border:1px solid rgba(200,90,45,0.12);border-radius:8px;padding:10px 14px;margin:16px 0;display:flex;align-items:center;gap:8px;font-size:12px;color:#c85a2d}
+.filter-notice .filter-dot{width:6px;height:6px;border-radius:50%;background:#c85a2d;flex-shrink:0}
+.status-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.status-dot.on-track{background:#1D9E75}.status-dot.at-risk{background:#E8A030}.status-dot.off-track{background:#D85A30}.status-dot.not-started{background:#ddd}
+.status-dot.complete{background:#1D9E75;box-shadow:0 0 0 2px #fff,0 0 0 3px #1D9E75}
+.weekly-compact{display:flex;flex-direction:column;gap:1px;background:rgba(0,0,0,0.04);border-radius:10px;overflow:hidden;margin:16px 0}
+.weekly-compact-header{display:grid;grid-template-columns:2fr 1fr 140px 2fr;background:#f3f1ec;font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.04em}
+.weekly-compact-header>div{padding:10px 12px;border-left:1px solid rgba(0,0,0,0.04)}.weekly-compact-header>div:first-child{border-left:none}
+.weekly-compact-row{display:grid;grid-template-columns:2fr 1fr 140px 2fr;background:#fff;font-size:13px;transition:background 0.15s}.weekly-compact-row:hover{background:#fdfcf8}
+.weekly-compact-row>div{padding:9px 12px;border-left:1px solid rgba(0,0,0,0.04);border-bottom:1px solid rgba(0,0,0,0.03);display:flex;align-items:center}.weekly-compact-row>div:first-child{border-left:none}
+.weekly-compact-row.row-off-track{background:rgba(216,90,48,0.06);border-left:3px solid #D85A30}
+.weekly-compact-row.row-at-risk{background:rgba(232,160,48,0.06);border-left:3px solid #E8A030}
+.weekly-compact-row.row-on-track{background:#fff}
+.weekly-compact-row.row-complete{background:rgba(29,158,117,0.04)}
+.weekly-compact-row.row-none{background:rgba(0,0,0,0.02);border-left:3px solid #ddd}
+.triage-summary{display:flex;gap:16px;align-items:center;padding:14px 16px;background:#fff;border-radius:10px;border:1px solid rgba(0,0,0,0.06);margin:16px 0}
+.triage-pill{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600}
+.triage-count{font-size:20px;font-weight:700;line-height:1}
+.triage-label{font-size:10px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600}
+.needs-discuss{font-size:10px;font-weight:700;color:#D85A30;text-transform:uppercase;letter-spacing:0.06em;margin-left:4px}
+.weekly-tagged-items{padding:8px 16px 12px;background:rgba(0,0,0,0.015);border-bottom:1px solid rgba(0,0,0,0.04);font-size:11px}
+.weekly-tagged-item{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.03)}
+.weekly-tagged-item:last-child{border-bottom:none}
+.weekly-tagged-item .tag-icon{flex-shrink:0;font-size:12px;margin-top:2px}
+.weekly-tagged-item .tag-text{font-size:12px;color:#1a1a1a;line-height:1.4}
+.weekly-tagged-item .tag-notes{color:#999;font-style:italic}
+.week-selector{display:flex;gap:4px;flex-wrap:wrap;margin:16px 0 8px}
+.week-selector button{font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;width:36px;height:36px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:#fff;color:#666;cursor:pointer;transition:all 0.15s}
+.week-selector button:hover{border-color:rgba(0,0,0,0.18)}.week-selector button.active{background:#D85A30;color:#fff;border-color:#D85A30}
+.week-selector button.has-data{border-color:#1D9E75;color:#1D9E75}.week-selector button.active.has-data{background:#D85A30;color:#fff;border-color:#D85A30}
+.view-toggle{display:flex;gap:1px;background:rgba(0,0,0,0.04);border-radius:8px;overflow:hidden;margin:20px 0 4px}
+.view-toggle button{font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:600;padding:8px 18px;border:none;background:#fff;color:#999;cursor:pointer;transition:all 0.15s;flex:1}
+.view-toggle button.active{background:#1a1a1a;color:#fff}
+.weekly-table{display:flex;flex-direction:column;gap:1px;background:rgba(0,0,0,0.04);border-radius:10px;overflow:hidden;margin-top:12px;margin-bottom:24px}
+.weekly-header{display:grid;grid-template-columns:60px 140px 1fr;background:#f3f1ec;font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.04em}
+.weekly-header>div{padding:10px 12px;border-left:1px solid rgba(0,0,0,0.04)}.weekly-header>div:first-child{border-left:none}
+.weekly-row{display:grid;grid-template-columns:60px 140px 1fr;background:#fff;font-size:13px;transition:background 0.15s}.weekly-row:hover{background:#fdfcf8}
+.weekly-row>div{padding:7px 12px;border-left:1px solid rgba(0,0,0,0.04);border-bottom:1px solid rgba(0,0,0,0.03);display:flex;align-items:center}.weekly-row>div:first-child{border-left:none}
+.week-num{font-size:11px;font-weight:700;color:#c85a2d;letter-spacing:0.02em}
+.rock-section-header{display:flex;align-items:center;gap:10px;margin-bottom:4px;margin-top:28px}
+.rock-section-header .dot-indicator{width:8px;height:8px;border-radius:50%;background:#D85A30;flex-shrink:0}
+.rock-section-header h3{font-size:15px;font-weight:700;color:#1a1a1a}.rock-section-header .owner-tag{font-size:11px;color:#bbb}
+.rock-legend{display:flex;gap:16px;flex-wrap:wrap}.rock-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:#999}
+.rock-table{display:flex;flex-direction:column;gap:1px;background:rgba(0,0,0,0.04);border-radius:10px;overflow:hidden;margin:20px 0}
+.rock-tbl-header{display:grid;grid-template-columns:2fr 1fr repeat(3,60px) 70px;background:#f3f1ec;font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.04em}
+.rock-tbl-header>div{padding:10px 12px;border-left:1px solid rgba(0,0,0,0.04)}.rock-tbl-header>div:first-child{border-left:none}
+.rock-tbl-row{display:grid;grid-template-columns:2fr 1fr repeat(3,60px) 70px;background:#fff;font-size:13px;transition:background 0.15s}.rock-tbl-row:hover{background:#fdfcf8}
+.rock-tbl-row>div{padding:11px 12px;border-left:1px solid rgba(0,0,0,0.04);border-bottom:1px solid rgba(0,0,0,0.03);display:flex;align-items:center}.rock-tbl-row>div:first-child{border-left:none}
+.rock-name{font-weight:600;color:#1a1a1a}.rock-owner{font-size:12px;color:#999}
+.score-grid{display:grid;gap:1px;background:rgba(0,0,0,0.04);border-radius:10px;overflow:hidden;margin:20px 0}
+.score-card{background:#fff;padding:20px 16px}.score-card .freq{font-size:10px;color:#c85a2d;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px}
+.score-card h3{font-size:14px;font-weight:700;color:#1a1a1a;margin-bottom:6px}
+.progress-track{height:4px;border-radius:2px;background:rgba(0,0,0,0.06);overflow:hidden}
+.progress-fill{height:100%;border-radius:2px;transition:width 0.4s ease}
+.target-card{background:#fff;border-radius:10px;border:1px solid rgba(0,0,0,0.06);padding:16px 20px;margin-bottom:12px;transition:background 0.15s}.target-card:hover{background:#fdfcf8}
+.target-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}.target-title{font-size:14px;font-weight:700;color:#1a1a1a}
+.target-text{font-size:12px;color:#999;line-height:1.55}
+.dg-note{font-size:11px;color:#bbb;margin-top:12px;line-height:1.55}
+input[type="checkbox"]{width:16px;height:16px;accent-color:#1D9E75;cursor:pointer}
+.dash-hero{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:rgba(0,0,0,0.04);border-radius:10px;overflow:hidden;margin:20px 0}
+.dash-stat{background:#fff;padding:24px 20px}.dash-stat .stat-label{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#bbb;margin-bottom:6px}
+.dash-stat .stat-value{font-size:28px;font-weight:700;color:#1a1a1a;line-height:1.1}.dash-stat .stat-sub{font-size:12px;color:#999;margin-top:4px}
+.dash-rock-card{background:#fff;border-radius:10px;border:1px solid rgba(0,0,0,0.06);padding:20px;margin-bottom:14px;transition:background 0.15s}.dash-rock-card:hover{background:#fdfcf8}
+.dash-rock-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.dash-rock-title{font-size:15px;font-weight:700;color:#1a1a1a}.dash-rock-owner{font-size:11px;color:#c85a2d;font-weight:600;margin-top:2px}
+.dash-rock-target{font-size:12px;color:#666;line-height:1.55;margin-bottom:14px;padding:10px 14px;background:#f8f6f1;border-radius:8px;border-left:2px solid #c85a2d}
+.dash-rock-target .target-label{font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#c85a2d;margin-bottom:3px}
+.dash-months{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(0,0,0,0.04);border-radius:8px;overflow:hidden;margin-top:14px}
+.dash-month-cell{background:#fff;padding:8px 12px;text-align:center}.dash-month-cell .month-label{font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#bbb;margin-bottom:6px}
+.dash-people-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:1px;background:rgba(0,0,0,0.04);border-radius:10px;overflow:hidden;margin:16px 0}
+.dash-person{background:#fff;padding:14px 16px}.dash-person .person-name{font-size:13px;font-weight:700;color:#1a1a1a;margin-bottom:2px}.dash-person .person-role{font-size:11px;color:#999}
+.dash-person .person-tag{font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px}.dash-person .person-tag.lead{color:#c85a2d}.dash-person .person-tag.support-tag{color:#534AB7}
+.dash-empty{font-size:13px;color:#bbb;padding:20px;text-align:center;background:#fff;border-radius:10px;border:1px dashed rgba(0,0,0,0.1);margin:16px 0}
+.rock-tabs button.locked{border-color:#E8A030;color:#E8A030;background:rgba(232,160,48,0.06);cursor:not-allowed;position:relative}
+.rock-tabs button.locked:hover{border-color:#E8A030}
+.lock-name{font-size:9px;display:block;font-weight:400;color:#bbb;margin-top:1px}
+.locked-notice{background:rgba(232,160,48,0.06);border:1px solid rgba(232,160,48,0.15);border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:12px;color:#E8A030;display:flex;align-items:center;gap:8px}
+.quarter-bar button .qtr-months{font-weight:400;font-size:10px;display:block;color:#999;margin-top:1px}
+.quarter-bar button.active .qtr-months{color:rgba(255,255,255,0.7)}
+.delete-rock-btn{font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:600;padding:6px 12px;border-radius:8px;border:1px solid rgba(216,90,48,0.2);background:rgba(216,90,48,0.06);color:#D85A30;cursor:pointer;transition:all 0.15s;margin-left:auto}.delete-rock-btn:hover{background:#D85A30;color:#fff;border-color:#D85A30}
+.strategic-goal-box{background:#fff;border-radius:10px;border:1px solid rgba(0,0,0,0.06);border-left:3px solid #534AB7;padding:16px 20px;margin:20px 0}
+.strategic-goal-box .sg-label{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#534AB7;margin-bottom:6px}
+@media(max-width:640px){.form-grid{grid-template-columns:1fr}.compare-row{grid-template-columns:1fr}.risk-row{grid-template-columns:1fr}.dash-hero{grid-template-columns:1fr 1fr}.dash-people-grid{grid-template-columns:1fr 1fr}nav{padding:10px 12px;gap:10px;font-size:11px}.identity-bar{padding:8px 12px}.identity-hint{display:none}.quarter-bar{padding:8px 12px}.quarter-bar .qtr-months{display:none}.quarter-bar button{padding:6px 12px;font-size:11px}.container{padding:0 12px}.editing-banner{flex-wrap:wrap;gap:8px}.export-bar{flex-direction:column;align-items:stretch}}
+</style>
+<script>document.addEventListener('DOMContentLoaded',function(){const tl=document.querySelectorAll('.tab-link'),ss=document.querySelectorAll('section');tl.forEach(l=>{l.addEventListener('click',function(e){e.preventDefault();const prev=document.querySelector('section.active');if(prev&&prev.id==='planner'){unlockRock(CQ,AR);hideTimeoutWarning();clearTimeout(sessionTimer);clearTimeout(warningTimer);}const t=this.getAttribute('href').substring(1);tl.forEach(x=>x.classList.remove('active'));ss.forEach(x=>x.classList.remove('active'));this.classList.add('active');const s=document.getElementById(t);if(s)s.classList.add('active');if(t==='dashboard')renderDashboard();if(t==='team')renderTeam();if(t==='planner'){lockRock(CQ,AR);resetSessionTimer();renderPlan();}if(t==='weekly')renderWeekly();if(t==='monthly')renderMonthly()})})});</script>
+</head>
+<body>
+<nav><a href="#dashboard" class="tab-link active">Dashboard</a><a href="#team" class="tab-link">Team</a><a href="#planner" class="tab-link">Rock Planner</a><a href="#weekly" class="tab-link">Weekly Traction</a><a href="#monthly" class="tab-link">Monthly Status</a></nav>
+<div class="identity-bar" id="identity-bar"><span class="who-label">Who am I?</span><select id="identity-select" onchange="setIdentity(this.value)"><option value="">Everyone (facilitator view)</option></select><span class="identity-hint" id="identity-hint">Select your name to see only your Rocks</span><span class="save-indicator" id="save-indicator">✓ Synced</span></div>
+<div class="quarter-bar" id="quarter-bar"><span class="qtr-label">Quarter</span><button class="active" onclick="switchQuarter('Q1')">Q1<span class="qtr-months">Apr–Jun</span></button><button onclick="switchQuarter('Q2')">Q2<span class="qtr-months">Jul–Sep</span></button><button onclick="switchQuarter('Q3')">Q3<span class="qtr-months">Oct–Dec</span></button><button onclick="switchQuarter('Q4')">Q4<span class="qtr-months">Jan–Mar</span></button><input type="text" class="year-input" id="year-input" value="FY26/27" onchange="setYear(this.value)" maxlength="7" style="width:80px"></div>
+<div class="container">
+<section id="dashboard" class="active"><div id="dash-goal"></div><div class="label">Quarter Overview</div><h1>Rocks dashboard.</h1><p class="subtitle">Every Rock — its result, purpose, action plan, status, and who's involved.</p><div id="dash-stats"></div><div id="dash-rocks"></div><h2 style="margin-top:40px">The people</h2><p style="margin-bottom:4px">Everyone involved this quarter — Rock owners and support team.</p><div id="dash-people"></div></section>
+<section id="team"><div class="label">Leadership Team</div><h1>Your team.</h1><p class="subtitle">Add the people who will own Rocks this quarter. Up to 8 team members.</p><h2 style="margin-top:28px">Strategic goal for the year</h2><p style="margin-bottom:12px">What is BAO's overarching strategic goal this year? Every Rock should connect back to this.</p><div class="strategic-goal-box"><div class="sg-label">Annual Strategic Goal</div><textarea id="strategic-goal" rows="2" onchange="updateGoal(this.value)" placeholder='e.g. "Become the #1 destination for sustainable dining in London — 30% revenue growth, 3 new locations, NPS above 70."' style="border:none;padding:0;font-size:13px;background:transparent"></textarea></div><h2>Leadership team</h2><p style="margin-bottom:4px">Up to 8 team members.</p><div class="team-grid"><div class="team-header"><div>Name</div><div>Role</div><div></div></div><div id="team-rows"></div><div class="team-add-row" id="team-add-row"><button class="team-add-btn" onclick="addPerson()">+ Add person<span class="team-count" id="team-count"></span></button></div></div><h2 style="margin-top:40px">Support team</h2><p style="margin-bottom:4px">The people who support execution — finance, HR, admin, external advisors. Up to 5.</p><div class="team-grid"><div class="team-header"><div>Name</div><div>Role</div><div></div></div><div id="support-rows"></div><div class="team-add-row" id="support-add-row"><button class="team-add-btn" onclick="addSupport()">+ Add person<span class="team-count" id="support-count"></span></button></div></div></section>
+<section id="planner"><div class="label">RPM Rock Planning</div><h1>Plan your rocks.</h1><p class="subtitle">Result → Purpose → Massive Action Plan. Fill this in individually, then pressure-test with the team.</p><div class="rock-tabs" id="rock-tabs"></div><div class="editing-banner" id="editing-banner"><div class="editing-dot"></div><div style="flex:1"><div class="editing-label">Currently editing</div><div class="editing-name" id="editing-name">Rock 1</div></div><button class="save-rock-btn" onclick="saveRock()">💾 Save my changes</button></div><div class="timeout-warning" id="timeout-warning" style="display:none"><span class="timeout-icon">⚠️</span><span>Your session will expire in <strong id="timeout-countdown">3:00</strong>. Save your work or you'll lose unsaved changes.</span><button class="save-rock-btn" onclick="saveRock()" style="margin-left:auto">Save now</button></div><div id="planner-filter-notice"></div><div class="guide-box"><div class="guide-title">RPM: Result, Purpose, Massive Action Plan</div><div class="guide-text">Every Rock answers three questions. <strong>Result</strong> — what specifically will be true when this is done? <strong>Purpose</strong> — why does this matter? <strong>MAP</strong> — what are the key actions? A good Rock is achievable in 90 days with a binary done/not-done outcome.</div></div><div class="export-bar"><button class="export-btn primary" onclick="downloadMyRPM()">📤 Download my Rocks</button><button class="delete-rock-btn" onclick="deleteRock()">🗑 Delete this Rock</button></div><h2 style="margin-top:28px">Rock details</h2><div class="form-grid"><div class="form-group"><label>Rock Title</label><input type="text" data-field="title" placeholder="Short, specific name"></div><div class="form-group"><label>Rock Type</label><select data-field="rockType" id="rock-type-select"><option value="">Select type…</option><option value="science">🔬 Science — move the numbers</option><option value="magic">✨ Magic — protect what makes us matter</option></select></div><div class="form-group"><label>Due Date</label><input type="date" data-field="dueDate"></div><div class="form-group"></div></div><h2 id="rock-team-heading">Rock team</h2><p style="margin-bottom:12px">Who's accountable, who's responsible for the work, and who's supporting.</p><div class="form-grid"><div class="form-group"><label>Accountable <span style="font-weight:400;color:#bbb;text-transform:none;letter-spacing:0">— owns the outcome</span></label><select data-field="owner" id="owner-select"><option value="">Select person…</option></select></div><div class="form-group"><label>Responsible <span style="font-weight:400;color:#bbb;text-transform:none;letter-spacing:0">— does the work</span></label><select data-field="responsible" id="responsible-select"><option value="">Select person…</option></select></div></div><div style="margin-top:12px"><label class="form-group" style="display:block;font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#999;margin-bottom:8px">Support <span style="font-weight:400;color:#bbb;text-transform:none;letter-spacing:0">— up to 4 people who help</span></label><div class="form-grid" id="rock-support-grid"></div></div><h2 style="color:#c85a2d">R — Result</h2><p style="margin-bottom:12px">One sentence. What is specifically true when this Rock is done? If you can't say "done" or "not done" — it's not specific enough.</p><textarea data-field="result" rows="1" class="action-textarea" oninput="autoGrow(this)" style="min-height:36px" placeholder='e.g. "Customer portal live with self-service billing and 50+ customers migrated."'></textarea><div class="compare-row"><div class="compare-card good"><span class="tag">✓ Specific result </span><span class="example">Hire 2 senior engineers with offers accepted by end of Q2</span></div><div class="compare-card bad"><span class="tag">✗ Vague wish </span><span class="example">Grow the engineering team</span></div></div><h2 style="color:#c85a2d">P — Purpose</h2><p style="margin-bottom:12px">Why does this matter? What does achieving this unlock? Link this to BAO's strategic goal for the year.</p><div id="purpose-goal-display"></div><textarea data-field="purpose" rows="1" class="action-textarea" oninput="autoGrow(this)" style="min-height:36px" placeholder='e.g. "Directly supports our goal of 30% revenue growth. Frees up 20hrs/week of support time so the team can focus on the new locations."'></textarea><h2 style="color:#c85a2d">MAP — Massive Action Plan</h2><p style="margin-bottom:12px">The key actions that will make the result happen. Tag anything that needs discussion or is blocked.</p><div class="milestone-table"><div class="milestone-header"><div>#</div><div>Action</div><div>Date</div><div>Owner</div><div style="text-align:center">Tag</div><div>Notes / Blockers</div><div style="text-align:center">Done</div><div></div></div><div id="milestones-body"></div><div class="team-add-row" id="map-add-row"><button class="team-add-btn" onclick="addAction()">+ Add action<span class="team-count" id="map-count"></span></button><span style="margin:0 8px;color:#ddd">|</span><button class="team-add-btn" onclick="showPasteImport()" style="color:#378ADD">📋 Paste from Excel</button></div></div><div id="paste-import-panel" style="display:none"><div class="guide-box" style="border-left-color:#378ADD;margin-top:0"><div class="guide-title" style="color:#378ADD">Import actions from Excel</div><div class="guide-text">Copy rows from your spreadsheet (including the header row) and paste below.</div></div><textarea id="paste-input" rows="6" placeholder="Paste your Excel rows here — include the header row" style="font-family:monospace;font-size:11px;margin-bottom:12px"></textarea><div id="paste-preview" style="display:none"><div style="font-size:12px;font-weight:700;color:#1a1a1a;margin-bottom:8px">Match your columns to ours:</div><div class="form-grid" id="paste-mapping"></div><div style="margin-top:16px"><div style="font-size:12px;font-weight:700;color:#1a1a1a;margin-bottom:8px">Preview (<span id="paste-row-count">0</span> rows):</div><div id="paste-preview-table"></div></div><div style="display:flex;gap:8px;margin-top:16px"><button class="export-btn primary" onclick="confirmPasteImport()">Import actions</button><button class="export-btn" onclick="hidePasteImport()">Cancel</button></div></div><div id="paste-parse-btn" style="margin-top:8px"><button class="export-btn" onclick="parsePasteData()" style="background:#378ADD;color:#fff;border-color:#378ADD">Read columns →</button><button class="export-btn" onclick="hidePasteImport()" style="margin-left:8px">Cancel</button></div></div><h2>Risks &amp; dependencies</h2><div id="risks-container"></div></section>
+<section id="weekly"><div class="label">Weekly Level 10</div><h1>Weekly traction.</h1><p class="subtitle">Rock owners update status before the meeting. Facilitator scans for what needs attention.</p><div class="guide-box" style="margin-bottom:8px"><div class="guide-text"><strong style="color:#c85a2d">Before the meeting:</strong> Rock owners update their status and tag any MAP actions as ⚡ Discuss or 🔴 Blocker in the Rock Planner.<br><br><strong style="color:#c85a2d">In the meeting:</strong> Facilitator scans this view — problems and flagged items sort to the top. Only discuss what's flagged. If it's green, move on.<br><br><strong style="color:#c85a2d">Notes / Blockers:</strong> Use the text box on each Rock to capture decisions, actions, or next steps from the discussion. This saves per-week so you have a record.</div></div><div class="view-toggle" id="weekly-view-toggle"><button class="active" onclick="setWeeklyView('compact')">All Rocks · One week</button><button onclick="setWeeklyView('full')">Quarterly history</button></div><div id="weekly-container"></div></section>
+<section id="monthly"><div class="label">Quarterly Rocks</div><h1>Monthly rock status.</h1><p class="subtitle">Track each rock's progress month by month across the quarter.</p><div class="rock-legend" style="margin-top:16px;margin-bottom:4px"><div class="rock-legend-item"><div class="status-dot not-started"></div>Not started</div><div class="rock-legend-item"><div class="status-dot on-track"></div>On track</div><div class="rock-legend-item"><div class="status-dot at-risk"></div>At risk</div><div class="rock-legend-item"><div class="status-dot off-track"></div>Off track</div><div class="rock-legend-item"><div class="status-dot complete"></div>Done</div></div><div id="monthly-table-container"></div><div class="dg-note">M1/M2/M3 = months within the current quarter. Off-track rocks become IDS issues.</div><h2 style="margin-top:40px">Action plan progress</h2><div id="summary-cards"></div><h2>Results &amp; purpose</h2><p style="margin-bottom:16px">Quick reference — the result and the reason behind each Rock.</p><div id="targets-container"></div></section>
+</div>
+<script>
+// ══════════ FIREBASE ══════════
+const FB_URL='https://bao-rocks-default-rtdb.firebaseio.com';
+firebase.initializeApp({databaseURL:FB_URL});
+const db=firebase.database();
+const dbRef=db.ref('rocks_tracker');
+const locksRef=db.ref('locks');
+let fbReady=false,ignoreNext=false;
+let locks={};
+
+// ══════════ STATE ══════════
+let CQ='Q1',CY='FY26/27',AQ={Q1:nQ(),Q2:nQ(),Q3:nQ(),Q4:nQ()},strategicGoal='';
+let CU=localStorage.getItem('bao_rocks_user')||'';
+let WVM='compact',SW=0,AR=0;
+const LOCK_TIMEOUT=15*60*1000; // 15 minutes
+
+function nQ(){return{rocks:[cR()],weeklyData:[cW()],team:[],support:[]};}
+function q(){return AQ[CQ];}function gR(){return q().rocks;}function gW(){return q().weeklyData;}
+function gT(){if(!q().team)q().team=[];return q().team;}
+function gSup(){if(!q().support)q().support=[];return q().support;}
+function qEnd(){const yr=parseInt((CY||'').replace(/\D/g,'').slice(0,2))+2000||2026;const m={Q1:'06-30',Q2:'09-30',Q3:'12-31',Q4:'03-31'};const y=CQ==='Q4'?String(yr+1):String(yr);return y+'-'+(m[CQ]||'06-30');}
+function cR(){return{id:Date.now()+Math.random(),owner:'',responsible:'',rockSupport:['','','',''],title:'',dueDate:qEnd(),rockType:'',result:'',purpose:'',milestones:Array.from({length:5},()=>({desc:'',date:'',who:'',done:false,tag:'',notes:''})),risks:Array.from({length:3},()=>({risk:'',mitigation:''}))};}
+function cW(){return Array.from({length:13},(_,i)=>({week:i+1,status:'',notes:''}));}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+function fyLabel(){return CY||'FY26/27';}
+
+// ══════════ FIREBASE SYNC ══════════
+function showStatus(type,text){const el=document.getElementById('save-indicator');if(!el)return;el.className='save-indicator visible '+type;el.textContent=text;if(type==='synced')setTimeout(()=>el.classList.remove('visible'),2500);}
+
+let saveTimer=null;
+function syncToFirebase(){clearTimeout(saveTimer);showStatus('saving','↑ Saving…');saveTimer=setTimeout(()=>{savePF();const d={AQ,strategicGoal,CQ,CY,updatedAt:new Date().toISOString()};ignoreNext=true;dbRef.set(d).then(()=>{showStatus('synced','✓ Synced');}).catch(e=>{showStatus('offline','✗ Offline');console.warn(e);});},800);}
+
+function loadFromFirebase(){dbRef.once('value').then(snap=>{const d=snap.val();if(d)applyData(d);fbReady=true;renderAll();}).catch(e=>{console.warn('Firebase load failed, using defaults:',e);fbReady=true;renderAll();});}
+
+// Listen for live changes from others
+dbRef.on('value',snap=>{if(ignoreNext){ignoreNext=false;return;}const d=snap.val();if(d){applyData(d);renderAll();showStatus('synced','✓ Updated');}});
+
+function applyData(d){
+if(d.AQ)AQ=d.AQ;
+if(d.strategicGoal!==undefined)strategicGoal=d.strategicGoal;
+if(d.CQ)CQ=d.CQ;if(d.CY)CY=d.CY;
+// Migrate old year format (2026) to FY format (FY26/27)
+if(CY&&/^\d{4}$/.test(CY)){const yr=parseInt(CY);CY='FY'+String(yr).slice(2)+'/'+String(yr+1).slice(2);}
+// Ensure all quarters exist with required arrays
+['Q1','Q2','Q3','Q4'].forEach(qk=>{
+if(!AQ[qk])AQ[qk]=nQ();
+if(!AQ[qk].rocks)AQ[qk].rocks=[cR()];
+if(!AQ[qk].weeklyData)AQ[qk].weeklyData=[cW()];
+if(!AQ[qk].team)AQ[qk].team=[];
+if(!AQ[qk].support)AQ[qk].support=[];
+while(AQ[qk].weeklyData.length<AQ[qk].rocks.length)AQ[qk].weeklyData.push(cW());});
+// If old global team/support exist, copy into any quarter that has none
+if(d.team&&d.team.length>0){['Q1','Q2','Q3','Q4'].forEach(qk=>{if(AQ[qk].team.length===0)AQ[qk].team=JSON.parse(JSON.stringify(d.team));});}
+if(d.support&&d.support.length>0){['Q1','Q2','Q3','Q4'].forEach(qk=>{if(AQ[qk].support.length===0)AQ[qk].support=JSON.parse(JSON.stringify(d.support));});}
+if(AR>=gR().length)AR=0;}
+
+function renderAll(){
+document.querySelectorAll('#quarter-bar button').forEach(b=>{b.classList.toggle('active',b.textContent.startsWith(CQ));});
+document.getElementById('year-input').value=CY;
+const sg=document.getElementById('strategic-goal');if(sg)sg.value=strategicGoal;
+renderTeam();renderSupport();pID();
+if(CU){const s=document.getElementById('identity-select');if(s)s.value=CU;uIH();}
+renderPlan();
+const a=document.querySelector('section.active');
+if(a&&a.id==='dashboard')renderDashboard();
+if(a&&a.id==='weekly')renderWeekly();
+if(a&&a.id==='monthly')renderMonthly();}
+
+// ══════════ QUARTERS ══════════
+function switchQuarter(qn){savePF();unlockRock(CQ,AR);CQ=qn;AR=0;document.querySelectorAll('#quarter-bar button').forEach(b=>{b.classList.toggle('active',b.textContent.startsWith(qn));});autoFillDueDates();lockRock(CQ,AR);resetSessionTimer();renderPlan();const a=document.querySelector('section.active');if(a){const id=a.id;if(id==='dashboard')renderDashboard();if(id==='weekly')renderWeekly();if(id==='monthly')renderMonthly();}syncToFirebase();}
+function setYear(y){CY=y;autoFillDueDates();syncToFirebase();}
+function autoFillDueDates(){const ed=qEnd();gR().forEach(r=>{if(!r.dueDate||isQE(r.dueDate))r.dueDate=ed;});}
+function isQE(d){return['03-31','06-30','09-30','12-31'].some(e=>d.endsWith(e));}
+
+// ══════════ TEAM ══════════
+function renderTeam(){const team=gT();let h='';team.forEach((p,i)=>{h+=`<div class="team-row"><div><input type="text" value="${esc(p.name)}" onchange="uP(${i},'name',this.value)" placeholder="Full name" style="font-size:12px;padding:6px 10px"></div><div><input type="text" value="${esc(p.role)}" onchange="uP(${i},'role',this.value)" placeholder="e.g. Head of Ops" style="font-size:12px;padding:6px 10px"></div><div style="justify-content:center"><button class="team-remove" onclick="rP(${i})" title="Remove">×</button></div></div>`;});document.getElementById('team-rows').innerHTML=h;document.getElementById('team-count').textContent=team.length>=8?' (max)':` (${team.length}/8)`;document.getElementById('team-add-row').style.display=team.length>=8?'none':'block';renderSupport();}
+function addPerson(){const team=gT();if(team.length>=8)return;team.push({name:'',role:''});renderTeam();pID();syncToFirebase();}
+function rP(i){gT().splice(i,1);renderTeam();pOD();pID();syncToFirebase();}
+function uP(i,f,v){gT()[i][f]=v;pOD();pID();syncToFirebase();}
+
+// ══════════ SUPPORT ══════════
+function renderSupport(){const support=gSup();let h='';support.forEach((p,i)=>{h+=`<div class="team-row"><div><input type="text" value="${esc(p.name)}" onchange="uS(${i},'name',this.value)" placeholder="Full name" style="font-size:12px;padding:6px 10px"></div><div><input type="text" value="${esc(p.role)}" onchange="uS(${i},'role',this.value)" placeholder="e.g. Finance Manager" style="font-size:12px;padding:6px 10px"></div><div style="justify-content:center"><button class="team-remove" onclick="rS(${i})" title="Remove">×</button></div></div>`;});document.getElementById('support-rows').innerHTML=h;document.getElementById('support-count').textContent=support.length>=5?' (max)':` (${support.length}/5)`;document.getElementById('support-add-row').style.display=support.length>=5?'none':'block';}
+function addSupport(){const support=gSup();if(support.length>=5)return;support.push({name:'',role:''});renderSupport();syncToFirebase();}
+function rS(i){gSup().splice(i,1);renderSupport();syncToFirebase();}
+function uS(i,f,v){gSup()[i][f]=v;syncToFirebase();}
+
+// ══════════ IDENTITY (local only) ══════════
+function pID(){const s=document.getElementById('identity-select');if(!s)return;const c=s.value;const allPeople=[...gT(),...gSup()];let h='<option value="">Everyone (facilitator view)</option>';allPeople.filter(p=>p.name.trim()).forEach(p=>{const l=p.role?`${p.name} — ${p.role}`:p.name;h+=`<option value="${esc(p.name)}" ${c===p.name?'selected':''}>${esc(l)}</option>`;});s.innerHTML=h;s.classList.toggle('has-user',!!s.value);uIH();}
+function setIdentity(v){unlockRock(CQ,AR);CU=v;localStorage.setItem('bao_rocks_user',v);document.getElementById('identity-select').classList.toggle('has-user',!!v);uIH();const a=document.querySelector('section.active');if(a){const id=a.id;if(id==='planner'){AR=fFOR();lockRock(CQ,AR);resetSessionTimer();renderPlan();}if(id==='weekly')renderWeekly();if(id==='dashboard')renderDashboard();}}
+function uIH(){const h=document.getElementById('identity-hint');if(!h)return;if(CU){const m=gR().filter(r=>r.owner===CU);h.textContent=m.length>0?`Showing ${m.length} Rock${m.length!==1?'s':''} for ${CU}`:'No Rocks assigned yet';h.style.color='#c85a2d';h.style.fontStyle='normal';h.style.fontWeight='600';}else{h.textContent='Select your name to see only your Rocks';h.style.color='#bbb';h.style.fontStyle='italic';h.style.fontWeight='400';}}
+function gFRI(){const r=gR();if(!CU)return r.map((_,i)=>i);return r.map((_,i)=>i).filter(i=>r[i].owner===CU||!r[i].owner);}
+function gMRI(){const r=gR();if(!CU)return r.map((_,i)=>i);return r.map((_,i)=>i).filter(i=>r[i].owner===CU);}
+function fFOR(){if(!CU)return 0;const i=gR().findIndex(r=>r.owner===CU);return i>=0?i:0;}
+
+// ══════════ OWNER DROPDOWN ══════════
+function pOD(){const o=[...gT(),...gSup()].filter(p=>p.name.trim()).map(p=>({v:p.name,l:p.role?`${p.name} — ${p.role}`:p.name}));
+// Accountable
+const s=document.getElementById('owner-select');if(s){const c=s.value;let h='<option value="">Select person…</option>';o.forEach(x=>{h+=`<option value="${esc(x.v)}" ${c===x.v?'selected':''}>${esc(x.l)}</option>`;});s.innerHTML=h;}
+// Responsible
+const rs=document.getElementById('responsible-select');if(rs){const c=rs.value;let h='<option value="">Select person…</option>';o.forEach(x=>{h+=`<option value="${esc(x.v)}" ${c===x.v?'selected':''}>${esc(x.l)}</option>`;});rs.innerHTML=h;}
+}
+
+// ══════════ ROCK LOCKING ══════════
+function lockKey(qi,ri){return qi+'_'+ri;}
+function getLock(qi,ri){const k=lockKey(qi,ri),l=locks[k];if(!l)return null;if(Date.now()-l.time>LOCK_TIMEOUT)return null;return l;}
+function isLockedByOther(qi,ri){if(!CU)return false;const l=getLock(qi,ri);return l&&l.user!==CU;}
+function lockRock(qi,ri){if(!CU)return;const k=lockKey(qi,ri);locksRef.child(k).set({user:CU,time:Date.now()});}
+function unlockRock(qi,ri){if(!CU)return;const k=lockKey(qi,ri);const l=locks[k];if(l&&l.user===CU)locksRef.child(k).remove();}
+function refreshLock(){if(!CU)return;const k=lockKey(CQ,AR);const l=locks[k];if(l&&l.user===CU)locksRef.child(k).update({time:Date.now()});}
+// Heartbeat every 60s
+setInterval(refreshLock,60000);
+// Listen for lock changes
+locksRef.on('value',snap=>{locks=snap.val()||{};// Clean expired
+Object.keys(locks).forEach(k=>{if(Date.now()-locks[k].time>LOCK_TIMEOUT){locksRef.child(k).remove();delete locks[k];}});
+const a=document.querySelector('section.active');if(a&&a.id==='planner')renderRockTabs();});
+// Release lock on page close
+window.addEventListener('beforeunload',e=>{if(CU){savePF();syncToFirebaseNow();unlockRock(CQ,AR);}});
+function syncToFirebaseNow(){savePF();const d={AQ,strategicGoal,CQ,CY,updatedAt:new Date().toISOString()};dbRef.set(d);}
+
+// ══════════ SAVE & SESSION TIMEOUT ══════════
+let sessionTimer=null,warningTimer=null,countdownInterval=null;
+const WARN_AT=12*60*1000; // warn at 12 mins
+const EXPIRE_AT=15*60*1000; // expire at 15 mins
+
+function saveRock(){savePF();syncToFirebase();const btn=document.querySelector('.editing-banner .save-rock-btn');if(btn){btn.textContent='✓ Changes saved';btn.classList.add('saved');setTimeout(()=>{btn.textContent='💾 Save my changes';btn.classList.remove('saved');},2000);}resetSessionTimer();hideTimeoutWarning();}
+
+function resetSessionTimer(){clearTimeout(sessionTimer);clearTimeout(warningTimer);clearInterval(countdownInterval);hideTimeoutWarning();if(!CU)return;
+warningTimer=setTimeout(()=>{showTimeoutWarning();},WARN_AT);
+sessionTimer=setTimeout(()=>{expireSession();},EXPIRE_AT);}
+
+function showTimeoutWarning(){const el=document.getElementById('timeout-warning');if(el)el.style.display='flex';
+let remaining=Math.round((EXPIRE_AT-WARN_AT)/1000);
+countdownInterval=setInterval(()=>{remaining--;if(remaining<=0){clearInterval(countdownInterval);return;}
+const m=Math.floor(remaining/60),s=remaining%60;
+const cd=document.getElementById('timeout-countdown');if(cd)cd.textContent=m+':'+(s<10?'0':'')+s;},1000);}
+
+function hideTimeoutWarning(){const el=document.getElementById('timeout-warning');if(el)el.style.display='none';clearInterval(countdownInterval);}
+
+function expireSession(){hideTimeoutWarning();unlockRock(CQ,AR);
+// Switch to dashboard
+document.querySelectorAll('.tab-link').forEach(l=>l.classList.remove('active'));document.querySelectorAll('section').forEach(s=>s.classList.remove('active'));
+document.querySelector('.tab-link[href="#dashboard"]').classList.add('active');document.getElementById('dashboard').classList.add('active');renderDashboard();
+alert('Your editing session has expired.\n\nAny unsaved changes have been lost. The Rock has been unlocked for others to use.\n\nTo continue editing, go back to the Rock Planner and select your Rock again.');}
+
+// Reset timer on any user activity in the planner
+document.addEventListener('input',()=>{const a=document.querySelector('section.active');if(a&&a.id==='planner'&&CU)resetSessionTimer();});
+document.addEventListener('change',()=>{const a=document.querySelector('section.active');if(a&&a.id==='planner'&&CU)resetSessionTimer();});
+
+// ══════════ ROCK TABS ══════════
+function renderRockTabs(){const rocks=gR(),vi=gFRI();let h='';rocks.forEach((r,i)=>{if(CU&&!vi.includes(i))return;const lo=isLockedByOther(CQ,i);const lk=getLock(CQ,i);
+if(lo){h+=`<button class="locked" onclick="alertLocked('${esc(lk.user)}','${esc(r.title)||'Rock '+(i+1)}')">${esc(r.title)||'Rock '+(i+1)}<span class="lock-name">🔒 ${esc(lk.user)}</span></button>`;}
+else{h+=`<button class="${i===AR?'active':''}" onclick="selectRock(${i})">${esc(r.title)||'Rock '+(i+1)}</button>`;}});
+if(rocks.length<8)h+=`<button class="add" onclick="addRock()">+ Add Rock</button>`;document.getElementById('rock-tabs').innerHTML=h;const rock=rocks[AR];if(rock)document.getElementById('editing-name').textContent=rock.title||'Rock '+(AR+1);}
+function alertLocked(user,title){alert(`${title} is being edited by ${user}.\n\nWait until they're finished, or try again in a few minutes.`);}
+function selectRock(i){if(isLockedByOther(CQ,i)){const l=getLock(CQ,i);alertLocked(l.user,gR()[i]?.title||'Rock '+(i+1));return;}savePF();unlockRock(CQ,AR);AR=i;lockRock(CQ,i);resetSessionTimer();renderPlan();}
+function addRock(){savePF();unlockRock(CQ,AR);const r=cR();if(CU)r.owner=CU;gR().push(r);gW().push(cW());AR=gR().length-1;lockRock(CQ,AR);resetSessionTimer();renderPlan();syncToFirebase();}
+function updateGoal(v){strategicGoal=v;syncToFirebase();}
+function deleteRock(){const rocks=gR();if(rocks.length<=1){alert('You need at least one Rock per quarter.');return;}const rock=rocks[AR];const name=rock.title||'Rock '+(AR+1);if(!confirm(`Delete "${name}"?\n\nThis will permanently remove this Rock, its RPM thinking, and all weekly traction data.\n\nThis cannot be undone.`))return;unlockRock(CQ,AR);rocks.splice(AR,1);gW().splice(AR,1);AR=Math.min(AR,rocks.length-1);lockRock(CQ,AR);resetSessionTimer();renderPlan();syncToFirebase();}
+
+// ══════════ PLAN VIEW ══════════
+function renderPlan(){const rocks=gR();if(AR>=rocks.length)AR=0;renderRockTabs();const rock=rocks[AR];if(!rock)return;
+const fn=CU?`<div class="filter-notice"><div class="filter-dot"></div>Showing Rocks for <strong style="margin-left:2px">${esc(CU)}</strong>.</div>`:'';
+const el=document.getElementById('planner-filter-notice');if(el)el.innerHTML=fn;
+pOD();const ms=document.getElementById('owner-select');if(ms)ms.value=rock.owner;
+const rs=document.getElementById('responsible-select');if(rs)rs.value=rock.responsible||'';
+const rts=document.getElementById('rock-type-select');if(rts)rts.value=rock.rockType||'';
+// Rock team heading
+const rth=document.getElementById('rock-team-heading');if(rth)rth.textContent=(rock.title?`"${rock.title}"`:'Rock')+ ' team';
+// Support grid (up to 4)
+const sup=rock.rockSupport||['','','',''];while(sup.length<4)sup.push('');
+const teamOpts=[...gT(),...gSup()].filter(p=>p.name.trim()).map(p=>({v:p.name,l:p.role?`${p.name} — ${p.role}`:p.name}));
+let supH='';for(let si=0;si<4;si++){let selH=`<div class="form-group"><label>Support ${si+1}</label><select onchange="uRS(${si},this.value)"><option value="">—</option>`;teamOpts.forEach(x=>{selH+=`<option value="${esc(x.v)}" ${sup[si]===x.v?'selected':''}>${esc(x.l)}</option>`;});selH+='</select></div>';supH+=selH;}
+document.getElementById('rock-support-grid').innerHTML=supH;
+document.querySelector('[data-field="title"]').value=rock.title;document.querySelector('[data-field="dueDate"]').value=rock.dueDate;document.querySelector('[data-field="result"]').value=rock.result;document.querySelector('[data-field="purpose"]').value=rock.purpose;
+// Show strategic goal in purpose section
+const pgd=document.getElementById('purpose-goal-display');
+if(pgd){pgd.innerHTML=strategicGoal?.trim()?`<div class="strategic-goal-box" style="border-left-color:#534AB7;margin-bottom:12px"><div class="sg-label">BAO's Strategic Goal · ${fyLabel()}</div><p style="font-size:12px;color:#1a1a1a;font-weight:600;margin:0">${esc(strategicGoal)}</p></div>`:`<div class="guide-box" style="border-left-color:#534AB7;margin-bottom:12px"><div class="guide-text" style="color:#999">No strategic goal set yet — add it in the Team tab. Every Rock should connect to BAO's annual goal.</div></div>`;}
+// Sort milestones by date (closest first), empty dates last
+const sortedIdx=rock.milestones.map((_,i)=>i).sort((a,b)=>{const da=rock.milestones[a].date,db=rock.milestones[b].date;if(!da&&!db)return 0;if(!da)return 1;if(!db)return-1;return da.localeCompare(db);});
+let mH='';let num=0;sortedIdx.forEach(i=>{const m=rock.milestones[i];num++;const tagCls=m.tag==='leverage'?'tagged-leverage':m.tag==='mustnot'?'tagged-mustnot':'';const selCls=m.tag==='leverage'?'tag-leverage':m.tag==='mustnot'?'tag-mustnot':'';
+mH+=`<div class="milestone-row ${tagCls}"><div><span class="milestone-num">${num}</span></div><div><textarea class="action-textarea" onchange="uM(${i},'desc',this.value)" oninput="autoGrow(this)" placeholder="What needs to happen">${esc(m.desc)}</textarea></div><div><input type="date" value="${esc(m.date)}" onchange="uM(${i},'date',this.value);renderPlan()" style="font-size:11px;padding:4px 6px"></div><div><input type="text" value="${esc(m.who)}" onchange="uM(${i},'who',this.value)" placeholder="Who" style="font-size:11px;padding:4px 6px"></div><div style="justify-content:center"><select class="tag-select ${selCls}" onchange="uM(${i},'tag',this.value);renderPlan()"><option value="">—</option><option value="leverage" ${m.tag==='leverage'?'selected':''}>⚡ Discuss</option><option value="mustnot" ${m.tag==='mustnot'?'selected':''}>🔴 Blocker</option></select></div><div><textarea class="action-textarea" onchange="uM(${i},'notes',this.value)" oninput="autoGrow(this)" placeholder="Blockers, to discuss…" style="font-size:11px;color:#888">${esc(m.notes||'')}</textarea></div><div style="justify-content:center"><input type="checkbox" ${m.done?'checked':''} onchange="uM(${i},'done',this.checked)"></div><div style="justify-content:center">${rock.milestones.length>1?`<button class="team-remove" onclick="rmA(${i})" title="Remove">×</button>`:''}</div></div>`;});
+document.getElementById('milestones-body').innerHTML=mH;document.getElementById('map-count').textContent=` (${rock.milestones.length})`;
+setTimeout(autoGrowAll,10);
+let rH='';rock.risks.forEach((r,i)=>{rH+=`<div class="risk-row"><input type="text" value="${esc(r.risk)}" onchange="uRk(${i},'risk',this.value)" placeholder="Risk or blocker"><input type="text" value="${esc(r.mitigation)}" onchange="uRk(${i},'mitigation',this.value)" placeholder="Mitigation / who can help"></div>`;});
+document.getElementById('risks-container').innerHTML=rH;}
+function savePF(){const r=gR()[AR];if(!r)return;const g=f=>document.querySelector(`[data-field="${f}"]`)?.value||'';r.owner=g('owner');r.title=g('title');r.dueDate=g('dueDate');r.rockType=g('rockType');r.result=g('result');r.purpose=g('purpose');r.responsible=g('responsible');}
+function uRS(i,v){const r=gR()[AR];if(!r)return;if(!r.rockSupport)r.rockSupport=['','','',''];r.rockSupport[i]=v;syncToFirebase();}
+function uM(i,f,v){gR()[AR].milestones[i][f]=v;syncToFirebase();}
+function uRk(i,f,v){gR()[AR].risks[i][f]=v;syncToFirebase();}
+function addAction(){const r=gR()[AR];r.milestones.push({desc:'',date:'',who:'',done:false,tag:'',notes:''});renderPlan();syncToFirebase();}
+function rmA(i){const r=gR()[AR];if(r.milestones.length<=1)return;r.milestones.splice(i,1);renderPlan();syncToFirebase();}
+function autoGrow(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
+// Auto-grow all textareas on render
+function autoGrowAll(){document.querySelectorAll('.action-textarea').forEach(el=>{el.style.height='auto';el.style.height=el.scrollHeight+'px';});}
+
+document.querySelectorAll('[data-field]').forEach(el=>{const ev=el.tagName==='SELECT'?['change']:['input'];ev.forEach(e=>{el.addEventListener(e,()=>{const r=gR()[AR];if(r)r[el.dataset.field]=el.value;if(el.dataset.field==='title')renderRockTabs();syncToFirebase();});});});
+
+// ══════════ DOWNLOAD (EXCEL) ══════════
+function downloadMyRPM(){if(typeof XLSX==='undefined'){alert('Excel library not loaded. Please refresh the page and try again.');return;}savePF();const rocks=gR();const my=CU?rocks.filter(r=>r.owner===CU):rocks;
+try{const wb=XLSX.utils.book_new();
+// Summary sheet
+const summaryData=[['Rock','Type','Accountable','Responsible','Due Date','Result','Purpose']];
+my.forEach(r=>{summaryData.push([r.title,r.rockType==='science'?'Science':'Magic',r.owner,r.responsible||'',r.dueDate,r.result,r.purpose]);});
+const ws1=XLSX.utils.aoa_to_sheet(summaryData);ws1['!cols']=[{wch:25},{wch:10},{wch:15},{wch:15},{wch:12},{wch:40},{wch:40}];
+XLSX.utils.book_append_sheet(wb,ws1,'Rocks Summary');
+// MAP sheet — all actions
+const mapData=[['Rock','Action','Date','Owner','Tag','Notes','Done']];
+my.forEach(r=>{(r.milestones||[]).forEach(m=>{if(m.desc?.trim()){const tag=m.tag==='leverage'?'Discuss':m.tag==='mustnot'?'Blocker':'';mapData.push([r.title,m.desc,m.date,m.who,tag,m.notes||'',m.done?'Yes':'No']);}});});
+const ws2=XLSX.utils.aoa_to_sheet(mapData);ws2['!cols']=[{wch:20},{wch:35},{wch:12},{wch:15},{wch:10},{wch:30},{wch:6}];
+XLSX.utils.book_append_sheet(wb,ws2,'Action Plan');
+// Risks sheet
+const riskData=[['Rock','Risk','Mitigation']];
+my.forEach(r=>{(r.risks||[]).forEach(k=>{if(k.risk?.trim())riskData.push([r.title,k.risk,k.mitigation]);});});
+const ws3=XLSX.utils.aoa_to_sheet(riskData);ws3['!cols']=[{wch:20},{wch:35},{wch:35}];
+XLSX.utils.book_append_sheet(wb,ws3,'Risks');
+const name=(CU||'All_Rocks').replace(/\s+/g,'_');
+const yearSafe=(CY||'FY26-27').replace(/\//g,'-');
+XLSX.writeFile(wb,`RPM_${name}_${CQ}_${yearSafe}.xlsx`);}catch(e){alert('Error creating Excel file: '+e.message);console.error(e);}}
+
+// ══════════ PASTE IMPORT ══════════
+let pasteData={headers:[],rows:[]};
+function showPasteImport(){document.getElementById('paste-import-panel').style.display='block';document.getElementById('paste-input').value='';document.getElementById('paste-preview').style.display='none';document.getElementById('paste-parse-btn').style.display='block';document.getElementById('paste-input').focus();}
+function hidePasteImport(){document.getElementById('paste-import-panel').style.display='none';pasteData={headers:[],rows:[]};}
+function parsePasteData(){
+const raw=document.getElementById('paste-input').value.trim();
+if(!raw){alert('Please paste your data first.');return;}
+const lines=raw.split('\n').map(l=>l.split('\t'));
+if(lines.length<2){alert('Need at least a header row and one data row.');return;}
+pasteData.headers=lines[0].map(h=>h.trim());
+pasteData.rows=lines.slice(1).filter(r=>r.some(c=>c.trim()));
+if(pasteData.rows.length===0){alert('No data rows found.');return;}
+const mapFields=[{id:'map_action',label:'Action',hint:'task, action, deliverable'},{id:'map_date',label:'Target Date',hint:'date, due, deadline'},{id:'map_owner',label:'Owner',hint:'owner, who, assigned, lead'}];
+let mH='';mapFields.forEach(f=>{const kw=f.hint.split(', ');let best='';
+pasteData.headers.forEach((h,i)=>{const hl=h.toLowerCase();if(kw.some(k=>hl.includes(k)))best=String(i);});
+mH+=`<div class="form-group"><label>${f.label} <span style="font-weight:400;color:#bbb;text-transform:none;letter-spacing:0">— ${f.hint}</span></label><select class="mapping-select" id="${f.id}" onchange="updatePastePreview()"><option value="">Skip</option>`;
+pasteData.headers.forEach((h,i)=>{mH+=`<option value="${i}" ${best===String(i)?'selected':''}>${esc(h)}</option>`;});
+mH+='</select></div>';});
+document.getElementById('paste-mapping').innerHTML=mH;
+updatePastePreview();document.getElementById('paste-preview').style.display='block';document.getElementById('paste-parse-btn').style.display='none';}
+function updatePastePreview(){const ai=document.getElementById('map_action')?.value,di=document.getElementById('map_date')?.value,oi=document.getElementById('map_owner')?.value;
+let h='<div style="border-radius:8px;overflow:hidden;border:1px solid rgba(0,0,0,0.06)"><div style="display:grid;grid-template-columns:2fr 100px 1fr;background:#f3f1ec;font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.04em"><div style="padding:8px 10px">Action</div><div style="padding:8px 10px">Date</div><div style="padding:8px 10px">Owner</div></div>';
+const mx=Math.min(pasteData.rows.length,5);for(let i=0;i<mx;i++){const r=pasteData.rows[i];
+h+=`<div style="display:grid;grid-template-columns:2fr 100px 1fr;font-size:12px;background:#fff"><div style="padding:6px 10px;border-bottom:1px solid rgba(0,0,0,0.04)">${esc(ai!==''?r[parseInt(ai)]||'':'—')}</div><div style="padding:6px 10px;border-bottom:1px solid rgba(0,0,0,0.04)">${esc(di!==''?r[parseInt(di)]||'':'—')}</div><div style="padding:6px 10px;border-bottom:1px solid rgba(0,0,0,0.04)">${esc(oi!==''?r[parseInt(oi)]||'':'—')}</div></div>`;}
+if(pasteData.rows.length>5)h+=`<div style="padding:8px 10px;font-size:11px;color:#bbb;font-style:italic;background:#fff">+ ${pasteData.rows.length-5} more rows…</div>`;
+h+='</div>';document.getElementById('paste-preview-table').innerHTML=h;document.getElementById('paste-row-count').textContent=pasteData.rows.length;}
+function parseDate(s){if(!s)return'';s=s.trim();if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const dmy=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);if(dmy){const yr=dmy[3].length===2?'20'+dmy[3]:dmy[3];return`${yr}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`;}const d=new Date(s);if(!isNaN(d))return d.toISOString().slice(0,10);return'';}
+function confirmPasteImport(){const ai=document.getElementById('map_action')?.value,di=document.getElementById('map_date')?.value,oi=document.getElementById('map_owner')?.value;
+if(ai===''){alert('Please map at least the Action column.');return;}
+const rock=gR()[AR];if(!rock)return;const existing=rock.milestones.filter(m=>m.desc.trim());let imported=0;
+pasteData.rows.forEach(r=>{const action=ai!==''?(r[parseInt(ai)]||'').trim():'';if(!action)return;
+const date=di!==''?parseDate(r[parseInt(di)]):'';const owner=oi!==''?(r[parseInt(oi)]||'').trim():'';
+if(existing.some(m=>m.desc.toLowerCase()===action.toLowerCase()))return;
+const ei=rock.milestones.findIndex(m=>!m.desc.trim());
+if(ei>=0)rock.milestones[ei]={desc:action,date,who:owner,done:false,tag:'',notes:''};
+else rock.milestones.push({desc:action,date,who:owner,done:false,tag:'',notes:''});imported++;});
+hidePasteImport();renderPlan();syncToFirebase();
+alert(`Imported ${imported} action${imported!==1?'s':''} into the MAP.${imported===0?' (All rows were duplicates or empty.)':''}`);}
+
+// ══════════ WEEKLY ══════════
+function setWeeklyView(m){WVM=m;document.querySelectorAll('#weekly-view-toggle button').forEach((b,i)=>{b.classList.toggle('active',(i===0&&m==='compact')||(i===1&&m==='full'));});renderWeekly();}
+function selectWeek(w){SW=w;renderWeekly();}
+function renderWeekly(){savePF();if(WVM==='compact')renderWC();else renderWF();}
+function renderWC(){const rocks=gR(),vi=CU?gMRI():rocks.map((_,i)=>i);let h='';
+if(CU)h+=`<div class="filter-notice"><div class="filter-dot"></div>Showing traction for <strong style="margin-left:2px">${esc(CU)}</strong>.</div>`;
+h+='<div class="week-selector">';for(let w=0;w<13;w++){const hd=vi.some(ri=>gW()[ri]?.[w]?.status);const c=(w===SW?'active':'')+(hd&&w!==SW?' has-data':'');h+=`<button class="${c}" onclick="selectWeek(${w})">W${w+1}</button>`;}h+='</div>';
+if(vi.length===0&&CU){h+=`<div class="dash-empty">No Rocks assigned to <strong>${esc(CU)}</strong> yet.</div>`;}else{
+// Gather and sort — not updated & problems first
+const items=vi.map(ri=>{const r=rocks[ri],w=gW()[ri]?.[SW]||{status:'',notes:''};const tagged=(r.milestones||[]).filter(m=>m.desc?.trim()&&(m.tag==='leverage'||m.tag==='mustnot'));return{ri,r,w,tagged};});
+const pri={'':0,'off-track':1,'at-risk':2,'on-track':3,'complete':4};
+items.sort((a,b)=>{const pa=a.tagged.length>0&&(pri[a.w.status]||0)>2?2:(pri[a.w.status]||0);const pb=b.tagged.length>0&&(pri[b.w.status]||0)>2?2:(pri[b.w.status]||0);return pa-pb;});
+// Summary
+const ws=items.map(x=>x.w.status);
+const notUpdated=ws.filter(s=>!s).length,offT=ws.filter(s=>s==='off-track').length,atR=ws.filter(s=>s==='at-risk').length,onT=ws.filter(s=>s==='on-track'||s==='complete').length;
+const taggedCount=items.filter(x=>x.tagged.length>0).length;
+const needsAttention=notUpdated+offT+atR+taggedCount;
+h+=`<div class="triage-summary">`;
+if(needsAttention===0&&onT>0){h+=`<div class="triage-pill"><span class="triage-count" style="color:#1D9E75">✓</span><span style="color:#1D9E75">All on track</span></div>`;}
+else{
+if(notUpdated>0)h+=`<div class="triage-pill"><span class="triage-count" style="color:#999">${notUpdated}</span><span class="triage-label" style="color:#999">not updated</span></div>`;
+if(offT>0)h+=`<div class="triage-pill"><span class="triage-count" style="color:#D85A30">${offT}</span><span class="triage-label" style="color:#D85A30">off track</span></div>`;
+if(atR>0)h+=`<div class="triage-pill"><span class="triage-count" style="color:#E8A030">${atR}</span><span class="triage-label" style="color:#E8A030">at risk</span></div>`;
+if(onT>0)h+=`<div class="triage-pill"><span class="triage-count" style="color:#1D9E75">${onT}</span><span class="triage-label" style="color:#1D9E75">on track</span></div>`;
+if(taggedCount>0)h+=`<div class="triage-pill"><span class="triage-count" style="color:#E8A030">${taggedCount}</span><span class="triage-label" style="color:#E8A030">flagged</span></div>`;}
+h+=`<span style="font-size:11px;color:#bbb;margin-left:auto">Week ${SW+1}</span></div>`;
+// Table
+h+='<div class="weekly-compact"><div class="weekly-compact-header"><div>Rock</div><div>Owner</div><div>Status</div><div>Notes / Blockers</div></div>';
+items.forEach(({ri,r,w})=>{
+const rowCls=w.status?'row-'+w.status:'row-none';
+const dt=w.status?`<div class="status-dot ${w.status}" style="margin-right:6px"></div>`:`<div class="status-dot not-started" style="margin-right:6px"></div>`;
+// Get tagged actions for this rock with their original milestone index
+const taggedActions=[];
+(r.milestones||[]).forEach((m,mi)=>{if(m.desc?.trim()&&(m.tag==='leverage'||m.tag==='mustnot'))taggedActions.push({...m,mi});});
+const hasTagged=taggedActions.length>0;
+const discuss=(!w.status||w.status==='off-track'||w.status==='at-risk'||hasTagged)?'<span class="needs-discuss">⚡ discuss</span>':'';
+h+=`<div class="weekly-compact-row ${rowCls}"><div class="rock-name" style="font-size:13px">${esc(r.title)||'Rock '+(ri+1)}${discuss}</div><div class="rock-owner">${esc(r.owner)}</div><div>${dt}<select onchange="uW(${ri},${SW},'status',this.value);renderWeekly()" style="width:100%;font-size:12px"><option value="">—</option><option value="on-track" ${w.status==='on-track'?'selected':''}>On Track</option><option value="at-risk" ${w.status==='at-risk'?'selected':''}>At Risk</option><option value="off-track" ${w.status==='off-track'?'selected':''}>Off Track</option><option value="complete" ${w.status==='complete'?'selected':''}>Complete</option></select></div><div><textarea class="action-textarea" onchange="uW(${ri},${SW},'notes',this.value)" oninput="autoGrow(this)" placeholder="${!w.status?'Status not updated':'General notes for this Rock…'}" style="font-size:12px;min-height:28px">${esc(w.notes)}</textarea></div></div>`;
+if(hasTagged){h+='<div class="weekly-tagged-items">';
+taggedActions.forEach(m=>{const icon=m.tag==='mustnot'?'🔴':'⚡';const label=m.tag==='mustnot'?'Blocker':'Discuss';
+h+=`<div class="weekly-tagged-item"><span class="tag-icon">${icon}</span><div style="flex:1"><div class="tag-text">${esc(m.desc)}</div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:${m.tag==='mustnot'?'#D85A30':'#E8A030'};margin-top:6px;margin-bottom:4px">${label}</div><textarea class="action-textarea" onchange="uMFromWeekly(${ri},${m.mi},'notes',this.value)" oninput="autoGrow(this)" placeholder="Notes from discussion…" style="font-size:11px;min-height:24px;color:#666">${esc(m.notes||'')}</textarea></div></div>`;});
+h+='</div>';}});
+h+='</div>';}
+document.getElementById('weekly-container').innerHTML=h;setTimeout(autoGrowAll,10);}
+function renderWF(){const rocks=gR(),vi=CU?gMRI():rocks.map((_,i)=>i);let h='';
+if(CU)h+=`<div class="filter-notice"><div class="filter-dot"></div>Showing traction for <strong style="margin-left:2px">${esc(CU)}</strong>.</div>`;
+vi.forEach((ri,idx)=>{const r=rocks[ri],wk=gW()[ri]||cW();
+h+=`<div class="rock-section-header" ${idx===0?'style="margin-top:20px"':''}><div class="dot-indicator"></div><h3>${esc(r.title)||'Rock '+(ri+1)}</h3><span class="owner-tag">${esc(r.owner)}</span></div><div class="weekly-table"><div class="weekly-header"><div>Week</div><div>Status</div><div>Notes / Blockers</div></div>`;
+wk.forEach((w,wi)=>{h+=`<div class="weekly-row"><div><span class="week-num">W${w.week}</span></div><div><select onchange="uW(${ri},${wi},'status',this.value)" style="width:100%;font-size:12px"><option value="">—</option><option value="on-track" ${w.status==='on-track'?'selected':''}>On Track</option><option value="at-risk" ${w.status==='at-risk'?'selected':''}>At Risk</option><option value="off-track" ${w.status==='off-track'?'selected':''}>Off Track</option><option value="complete" ${w.status==='complete'?'selected':''}>Complete</option></select></div><div><textarea class="action-textarea" onchange="uW(${ri},${wi},'notes',this.value)" oninput="autoGrow(this)" placeholder="Decisions, actions, next steps…" style="font-size:12px;min-height:28px">${esc(w.notes)}</textarea></div></div>`;});
+h+='</div>';});document.getElementById('weekly-container').innerHTML=h;setTimeout(autoGrowAll,10);}
+function uW(ri,wi,f,v){gW()[ri][wi][f]=v;syncToFirebase();}
+function uMFromWeekly(ri,mi,f,v){const r=gR()[ri];if(r&&r.milestones&&r.milestones[mi])r.milestones[mi][f]=v;syncToFirebase();}
+
+// ══════════ MONTHLY ══════════
+function renderMonthly(){savePF();const rocks=gR();
+let t='<div class="rock-table"><div class="rock-tbl-header"><div>Rock</div><div>Owner</div><div style="text-align:center">M1</div><div style="text-align:center">M2</div><div style="text-align:center">M3</div><div style="text-align:center">Overall</div></div>';
+rocks.forEach((r,ri)=>{const o=gOS(ri);t+=`<div class="rock-tbl-row"><div class="rock-name">${esc(r.title)||'Rock '+(ri+1)}</div><div class="rock-owner">${esc(r.owner)}</div><div style="justify-content:center"><div class="status-dot ${gMS(ri,0)}"></div></div><div style="justify-content:center"><div class="status-dot ${gMS(ri,1)}"></div></div><div style="justify-content:center"><div class="status-dot ${gMS(ri,2)}"></div></div><div style="justify-content:center"><div class="status-dot ${o}"></div></div></div>`;});
+t+='</div>';document.getElementById('monthly-table-container').innerHTML=t;
+let c=Math.min(rocks.length,3),s=`<div class="score-grid" style="grid-template-columns:repeat(${c},1fr)">`;
+rocks.forEach((r,ri)=>{const cp=gC(r),bc=cp.pct===100?'#1D9E75':'#D85A30';s+=`<div class="score-card"><div class="freq">${esc(r.owner)||'Owner'}</div><h3>${esc(r.title)||'Rock '+(ri+1)}</h3><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:#999">Actions</span><span style="font-size:11px;font-weight:700;color:${cp.pct===100?'#1D9E75':'#1a1a1a'}">${cp.done}/${cp.total}</span></div><div class="progress-track"><div class="progress-fill" style="width:${cp.pct}%;background:${bc}"></div></div></div>`;});
+s+='</div>';document.getElementById('summary-cards').innerHTML=s;
+let tg='';rocks.forEach((r,ri)=>{const o=gOS(ri);tg+=`<div class="target-card"><div class="target-header"><span class="target-title">${esc(r.title)||'Rock '+(ri+1)}</span><div class="status-dot ${o}"></div></div><div style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#c85a2d;margin-bottom:3px">Result</div><div class="target-text">${esc(r.result)||'No result defined yet.'}</div>${r.purpose?.trim()?`<div style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#534AB7;margin-top:10px;margin-bottom:3px">Purpose</div><div class="target-text">${esc(r.purpose)}</div>`:''}</div>`;});
+document.getElementById('targets-container').innerHTML=tg;}
+function gC(r){const t=r.milestones.filter(m=>m.desc).length||r.milestones.length,d=r.milestones.filter(m=>m.done).length;return{done:d,total:t,pct:t>0?Math.round((d/t)*100):0};}
+function gMS(ri,mi){const w=(gW()[ri]||[]).slice(mi*4,mi*4+4),s=w.map(x=>x.status).filter(Boolean);if(!s.length)return'not-started';if(s.includes('complete'))return'complete';if(s.includes('off-track'))return'off-track';if(s.includes('at-risk'))return'at-risk';return'on-track';}
+function gOS(ri){const w=gW()[ri]||[],s=w.map(x=>x.status).filter(Boolean);if(!s.length)return'not-started';return s[s.length-1];}
+
+// ══════════ DASHBOARD ══════════
+function renderDashboard(){savePF();const rocks=gR(),vr=CU?rocks.filter(r=>r.owner===CU):rocks,vi=CU?rocks.map((r,i)=>i).filter(i=>rocks[i].owner===CU):rocks.map((_,i)=>i);
+const rwt=vr.filter(r=>r.result?.trim()).length,aM=vr.reduce((s,r)=>s+r.milestones.filter(m=>m.desc).length,0),dM=vr.reduce((s,r)=>s+r.milestones.filter(m=>m.done).length,0);
+const tc=gT().filter(t=>t.name.trim()).length,sc=gSup().filter(s=>s.name.trim()).length;
+let oT=0,aR=0,oF=0;vi.forEach(ri=>{const s=gOS(ri);if(s==='on-track'||s==='complete')oT++;else if(s==='at-risk')aR++;else if(s==='off-track')oF++;});
+const sl=CU?esc(CU)+"'s Rocks":'Rocks this quarter',sn=CU?`<div class="filter-notice" style="margin-bottom:0"><div class="filter-dot"></div>Dashboard for <strong style="margin-left:2px">${esc(CU)}</strong>.</div>`:'';
+document.getElementById('dash-stats').innerHTML=`${sn}<div class="dash-hero"><div class="dash-stat"><div class="stat-label">${sl}</div><div class="stat-value">${CU?vr.length:rocks.length}</div><div class="stat-sub">${rwt} with results · ${CQ} ${fyLabel()}</div></div><div class="dash-stat"><div class="stat-label">Actions</div><div class="stat-value">${dM}/${aM||'—'}</div><div class="stat-sub">${aM>0?Math.round((dM/aM)*100)+'% complete':'No actions yet'}</div></div><div class="dash-stat"><div class="stat-label">People</div><div class="stat-value">${tc+sc}</div><div class="stat-sub">${tc} leadership · ${sc} support</div></div><div class="dash-stat"><div class="stat-label">Health</div><div class="stat-value" style="display:flex;gap:8px;align-items:center">${oT>0?`<span style="color:#1D9E75">${oT}</span>`:''}${aR>0?`<span style="color:#E8A030">${aR}</span>`:''}${oF>0?`<span style="color:#D85A30">${oF}</span>`:''}${oT+aR+oF===0?'<span style="color:#bbb;font-size:14px">No status</span>':''}</div><div class="stat-sub">${oT>0?oT+' on track':''}${aR>0?(oT>0?' · ':'')+aR+' at risk':''}${oF>0?((oT>0||aR>0)?' · ':'')+oF+' off track':''}</div></div></div>`;
+let rH='';if(vr.length===0&&CU)rH=`<div class="dash-empty">No Rocks for <strong>${esc(CU)}</strong> yet.</div>`;
+else if(!vr.some(r=>r.title?.trim()||r.result?.trim())&&!CU)rH='<div class="dash-empty">No Rocks set up yet. Head to <strong>Rock Planner</strong>.</div>';
+else{vi.forEach(ri=>{const r=rocks[ri],o=gOS(ri),cp=gC(r);
+const rtBadge=r.rockType?`<span class="rock-type-badge ${r.rockType}">${r.rockType==='science'?'🔬 Science':'✨ Magic'}</span>`:'';
+const supNames=(r.rockSupport||[]).filter(s=>s).join(', ');
+rH+=`<div class="dash-rock-card"><div class="dash-rock-top"><div><div class="dash-rock-title">${esc(r.title)||'Rock '+(ri+1)} ${rtBadge}</div><div class="dash-rock-owner">${esc(r.owner)||'No one assigned'}</div></div><div><div class="status-dot ${o}"></div></div></div>`;
+if(r.owner||r.responsible||supNames){rH+=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;font-size:11px">`;
+if(r.owner)rH+=`<span><strong style="color:#c85a2d">A:</strong> ${esc(r.owner)}</span>`;
+if(r.responsible)rH+=`<span><strong style="color:#378ADD">R:</strong> ${esc(r.responsible)}</span>`;
+if(supNames)rH+=`<span><strong style="color:#999">S:</strong> ${esc(supNames)}</span>`;
+rH+=`</div>`;}
+if(r.result?.trim())rH+=`<div class="dash-rock-target"><div class="target-label">Result</div>${esc(r.result)}</div>`;
+if(r.purpose?.trim())rH+=`<div class="dash-rock-target" style="border-left-color:#534AB7"><div class="target-label" style="color:#534AB7">Purpose</div>${esc(r.purpose)}</div>`;
+rH+=`<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:#999">Actions</span><span style="font-size:11px;font-weight:700;color:${cp.pct===100?'#1D9E75':'#1a1a1a'}">${cp.done}/${cp.total}${cp.total>0?' ('+cp.pct+'%)':''}</span></div><div class="progress-track"><div class="progress-fill" style="width:${cp.pct}%;background:${cp.pct===100?'#1D9E75':'#D85A30'}"></div></div>`;
+rH+=`<div class="dash-months"><div class="dash-month-cell"><div class="month-label">Month 1</div><div class="status-dot ${gMS(ri,0)}"></div></div><div class="dash-month-cell"><div class="month-label">Month 2</div><div class="status-dot ${gMS(ri,1)}"></div></div><div class="dash-month-cell"><div class="month-label">Month 3</div><div class="status-dot ${gMS(ri,2)}"></div></div></div></div>`;});}
+document.getElementById('dash-rocks').innerHTML=rH;
+
+// Strategic goal
+const goalEl=document.getElementById('dash-goal');
+if(goalEl){goalEl.innerHTML=strategicGoal?.trim()?`<div class="strategic-goal-box" style="border-left-color:#534AB7;margin-bottom:4px"><div class="sg-label">BAO's Strategic Goal · ${fyLabel()}</div><p style="font-size:13px;color:#1a1a1a;font-weight:600;margin:0">${esc(strategicGoal)}</p></div>`:'';}
+
+const at=gT().filter(t=>t.name.trim()),asp=gSup().filter(s=>s.name.trim());let pH='';
+if(!at.length&&!asp.length)pH='<div class="dash-empty">No team members yet.</div>';
+else{pH='<div class="dash-people-grid">';at.forEach(p=>{pH+=`<div class="dash-person"><div class="person-tag lead">Rock Owner</div><div class="person-name">${esc(p.name)}</div><div class="person-role">${esc(p.role)}</div></div>`;});asp.forEach(p=>{pH+=`<div class="dash-person"><div class="person-tag support-tag">Support</div><div class="person-name">${esc(p.name)}</div><div class="person-role">${esc(p.role)}</div></div>`;});pH+='</div>';}
+document.getElementById('dash-people').innerHTML=pH;}
+
+// ══════════ INIT ══════════
+showStatus('saving','Loading…');
+loadFromFirebase();
+</script>
+</body>
+</html>
